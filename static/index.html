@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI Text Extractor - Convert images to text magically using OCR and AI.">
+    <title>AI Text Extractor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>AI Text Extractor</h1>
+            <p>Upload an image and magically convert it to editable text.</p>
+        </header>
+
+        <main>
+            <!-- Upload Area -->
+            <section class="upload-section">
+                <div id="drop-zone" class="drop-zone">
+                    <input type="file" id="file-input" accept="image/*" hidden>
+                    <div class="icon">📁</div>
+                    <p>Drag & Drop an image here or <span class="browse-btn">Browse</span></p>
+                </div>
+                <div id="loading" class="hidden">
+                    <div class="spinner"></div>
+                    <p class="loading-text">Extracting with AI...</p>
+                </div>
+            </section>
+
+            <!-- Results Area -->
+            <section id="result-section" class="hidden">
+                <div class="results-grid">
+                    <div class="result-card">
+                        <h3>Raw OCR Output</h3>
+                        <textarea id="raw-text" readonly></textarea>
+                    </div>
+                    <div class="result-card">
+                        <h3>AI Corrected Output</h3>
+                        <textarea id="corrected-text" readonly></textarea>
+                    </div>
+                </div>
+                <!-- Original Image Preview -->
+                <div class="image-preview-container">
+                    <h3>Uploaded Document</h3>
+                    <img id="image-preview" src="" alt="Preview">
+                </div>
+            </section>
+
+            <!-- History Area -->
+            <section class="history-section">
+                <h2>Processing History</h2>
+                <div id="history-list" class="history-list">
+                    <!-- Dynamic Items Here -->
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>
