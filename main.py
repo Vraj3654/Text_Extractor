@@ -31,7 +31,6 @@ def main():
         preprocess.preprocess_image(
             input_path=INPUT_IMAGE, 
             output_path=PROCESSED_IMAGE,
-            invert=False,       # Set True if text is light-on-dark
             show_preview=False  # Set True to see the image window
         )
 

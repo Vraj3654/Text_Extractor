@@ -1,0 +1,17 @@
+# Image Processing
+opencv-python-headless
+numpy
+Pillow
+
+# OCR
+pytesseract
+
+# Web App
+fastapi
+uvicorn
+python-multipart
+sqlalchemy
+
+# AI Correction
+transformers
+torch

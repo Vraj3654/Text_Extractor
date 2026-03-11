@@ -2,28 +2,21 @@ import cv2
 import os
 import numpy as np
 
-def preprocess_image(input_path, output_path, show_preview=False):
-    # 1. Validation
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Input image not found: {input_path}")
-
-    output_dir = os.path.dirname(output_path)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    # 2. Load Image
-    img = cv2.imread(input_path)
+def preprocess_image(image_bytes):
+    # 1. Load Image from bytes into numpy array
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
-    # 3. Convert to Grayscale
+    if img is None:
+        raise ValueError("Provided bytes could not be decoded into an image.")
+    
+    # 2. Convert to Grayscale
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # 4. Remove Noise (Light Blur)
-    # This removes the "grain" from the paper texture
+    # 3. Remove Noise (Light Blur)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # 5. ADAPTIVE THRESHOLDING (The "Scanner" Fix)
-    # Instead of one global value, this calculates local thresholds.
-    # Block Size (11) and C (2) are tunable, but 11/2 is standard for docs.
+    # 4. ADAPTIVE THRESHOLDING
     thresh = cv2.adaptiveThreshold(
         blur, 
         255, 
@@ -33,31 +26,11 @@ def preprocess_image(input_path, output_path, show_preview=False):
         2
     )
 
-    # 6. Dilation/Erosion (Optional Cleanup)
-    # This connects broken letters which is common in adaptive thresholding
+    # 5. Dilation/Erosion (Optional Cleanup)
     kernel = np.ones((1, 1), np.uint8)
     processed = cv2.erode(thresh, kernel, iterations=1) 
 
-    # 7. Save
-    cv2.imwrite(output_path, processed)
-    print(f"✅ Preprocessing complete. Saved to: {output_path}")
-
-    # Preview
-    if show_preview:
-        # Resize for screen if massive
-        h, w = processed.shape
-        if h > 800:
-            scale = 800 / h
-            dim = (int(w * scale), 800)
-            preview = cv2.resize(processed, dim)
-        else:
-            preview = processed
-            
-        cv2.imshow("Scanner Mode Preview", preview)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
-
-    return output_path
+    return processed
 
 if __name__ == "__main__":
     # Test run

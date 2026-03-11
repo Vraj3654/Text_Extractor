@@ -3,64 +3,129 @@ from PIL import Image
 import re
 import os
 
-# Default Windows Path (Adjust if needed)
-DEFAULT_TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
+# =========================
+# TESSERACT CONFIGURATION
+# =========================
+
+# We use the system default so Docker can locate it automatically.
+DEFAULT_TESSERACT_CMD = "tesseract"
 
 def configure_tesseract(tesseract_cmd=DEFAULT_TESSERACT_CMD):
-    """Sets the path to the Tesseract executable."""
-    if not os.path.exists(tesseract_cmd):
-        raise FileNotFoundError(f"Tesseract executable not found at: {tesseract_cmd}")
     pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
-def clean_text(text):
-    """
-    Specific cleanup for the A.D. Patel Letter
-    """
-    # 1. Fix "Rupee" symbol confusion (Tesseract sees £ or ? often)
-    # The image has "₹28,500"
-    text = text.replace('£', '₹').replace('?', '₹')
 
-    # 2. Fix the "th" superscript date issue (30° -> 30th)
-    # Regex: Look for number followed by degree symbol
+# =========================
+# LOAD AI MODEL (ONCE)
+# =========================
+
+MODEL_NAME = "vennify/t5-base-grammar-correction"
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+
+
+# =========================
+# POST-OCR FIXES (SAFE)
+# =========================
+
+def fix_ocr_artifacts(text):
+    """
+    Fix OCR mechanical errors (rule-based, safe)
+    """
+    text = text.replace('£', '₹')
     text = re.sub(r'(\d+)°', r'\1th', text)
-
-    # 3. Fix common "Principal" typos
-    text = text.replace('Principat', 'Principal')
-
-    # 4. Fix pipe '|' or '!' errors at start of words
-    text = re.sub(r'\b[|!](?=\s)', 'I', text) 
-    text = re.sub(r'(?<=[A-Za-z])[|!](?=[A-Za-z])', 'I', text)
-
+    # Fix common pipeline artifacts (I vs l, | vs I)
+    text = re.sub(r'(?<=[a-z])[|!](?=[a-z])', 'l', text)
+    text = re.sub(r'(?<=[A-Z])[|!](?=[A-Z])', 'I', text)
     return text
 
-def extract_text_from_image(image_path, output_txt_path=None):
-    if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Image not found: {image_path}")
 
-    # OCR Config: PSM 6 is usually best for letters/blocks of text
-    custom_config = r'--oem 3 --psm 6' 
+# =========================
+# AI TEXT CORRECTION
+# =========================
+
+def ai_text_correction(text):
+    """
+    Applies transformer-based grammar & spelling correction.
+    Only runs on alphabet-heavy lines to protect numbers & IDs.
+    """
+
+    corrected_lines = []
+
+    for line in text.split('\n'):
+
+        # Skip empty lines
+        if not line.strip():
+            corrected_lines.append(line)
+            continue
+
+        # Skip lines with lots of digits (IDs, dates, amounts)
+        digit_ratio = sum(c.isdigit() for c in line) / max(len(line), 1)
+        if digit_ratio > 0.25:
+            corrected_lines.append(line)
+            continue
+
+        # Apply AI correction
+        input_text = "grammar: " + line
+        input_ids = tokenizer.encode(input_text, return_tensors="pt", truncation=True)
+
+        outputs = model.generate(
+            input_ids,
+            max_length=128,
+            num_beams=4,
+            early_stopping=True
+        )
+
+        corrected_line = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        corrected_lines.append(corrected_line)
+
+    return "\n".join(corrected_lines)
+
+
+# =========================
+# DOCUMENT-SPECIFIC FIXES
+# =========================
+
+def document_specific_fix(text):
+    text = text.replace('Principat', 'Principal')
+    return text
+
+
+# =========================
+# MAIN OCR FUNCTION
+# =========================
+
+def extract_text_from_image(cv2_image_array):
     
-    img = Image.open(image_path)
+    custom_config = r'--oem 3 --psm 4 -c preserve_interword_spaces=1'
     
-    # Extract
+    # Convert cv2 numpy array to PIL Image compatible with pytesseract
+    img = Image.fromarray(cv2_image_array)
+
+    # Step 1: OCR
     raw_text = pytesseract.image_to_string(img, config=custom_config)
-    final_text = clean_text(raw_text)
 
-    if output_txt_path:
-        # Ensure output directory exists
-        output_dir = os.path.dirname(output_txt_path)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    # Step 2: OCR artifact fixes
+    text = fix_ocr_artifacts(raw_text)
 
-        with open(output_txt_path, "w", encoding="utf-8") as f:
-            f.write(final_text)
+    # Step 3: AI correction
+    text = ai_text_correction(text)
 
-    return final_text
+    # Step 4: Document-specific cleanup
+    final_text = document_specific_fix(text)
+
+    return {"raw_text": raw_text, "corrected_text": final_text}
+
+
+# =========================
+# TEST BLOCK
+# =========================
 
 if __name__ == "__main__":
-    # Test block
     try:
         configure_tesseract()
-        print("Test run successful.")
+        print("AI-powered OCR pipeline ready.")
     except Exception as e:
         print(f"Error: {e}")
