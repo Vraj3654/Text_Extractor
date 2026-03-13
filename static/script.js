@@ -38,7 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     fileInput.addEventListener('change', function() {
-        if (this.files.length) handleFiles(this.files[0]);
+        if (this.files && this.files.length > 0) {
+            handleFiles(this.files[0]);
+        }
     });
 
     function handleFiles(file) {
@@ -121,6 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     rawText.value = item.raw_text;
                     correctedText.value = item.corrected_text;
                     resultSection.classList.remove('hidden');
+                    
+                    // Hide loading spinner and show dropzone if they were in an incorrect state
+                    loading.classList.add('hidden');
+                    dropZone.classList.remove('hidden');
                     
                     // We don't have a direct frontend path for the DB image, so we hide the preview for history
                     imagePreview.style.display = 'none';
